@@ -638,8 +638,21 @@
   const flag = document.getElementById('rewrite-ok');
   const button = form.querySelector('button[type="submit"]');
   const probeUrl = form.getAttribute('data-probe');
+  const redirectInput = form.querySelector('input[name="oidc_redirect_uri"]');
+  const initialRedirect = redirectInput ? redirectInput.value : '';
 
   if (!probeUrl || !flag || !button) return;
+
+  function normalizeRedirect(url, rewrite) {
+    if (!url) return url;
+    if (rewrite) {
+      return url.replace('/index.php/auth/oidc/callback', '/auth/oidc/callback');
+    }
+    if (url.indexOf('/index.php/') === -1) {
+      return url.replace('/auth/oidc/callback', '/index.php/auth/oidc/callback');
+    }
+    return url;
+  }
 
   const originalText = button.textContent;
   button.disabled = true;
@@ -654,6 +667,9 @@
     })
     .then(function (isJson) {
       flag.value = isJson ? '1' : '0';
+      if (redirectInput && redirectInput.value === initialRedirect) {
+        redirectInput.value = normalizeRedirect(initialRedirect, isJson);
+      }
     })
     .catch(function () {
       flag.value = '0';
@@ -662,4 +678,20 @@
       button.disabled = false;
       button.textContent = originalText;
     });
+})();
+
+/* ============================================================
+   安装向导：OIDC 字段按启用状态显示/隐藏
+   ============================================================ */
+(function () {
+  const toggle = document.getElementById('oidc-enabled');
+  const fields = document.getElementById('oidc-fields');
+  if (!toggle || !fields) return;
+
+  const sync = function () {
+    fields.hidden = !toggle.checked;
+  };
+
+  toggle.addEventListener('change', sync);
+  sync();
 })();

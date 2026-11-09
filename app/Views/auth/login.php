@@ -28,5 +28,12 @@ use App\Support\View;
 
       <button class="btn btn-primary btn-block" type="submit">登录</button>
     </form>
+
+    <?php if (!empty($oidcEnabled)): ?>
+      <div class="auth-divider"><span>或</span></div>
+      <a class="btn btn-oidc btn-block" href="<?= View::url('auth/oidc/start') ?>">
+        <?= View::e($oidcLabel ?? '使用 OIDC 登录') ?>
+      </a>
+    <?php endif; ?>
   </div>
 </section>

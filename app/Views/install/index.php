@@ -94,6 +94,49 @@ foreach ($checks as $check) {
       </label>
     </div>
 
+    <h2 class="card-title" style="margin-top:8px">OIDC 单点登录（可选）</h2>
+    <label class="checkbox-field">
+      <input type="checkbox" name="oidc_enabled" id="oidc-enabled" value="1" <?= !empty($old['oidc_enabled']) ? 'checked' : '' ?>>
+      <span>启用 OIDC 登录</span>
+    </label>
+
+    <div id="oidc-fields">
+      <label class="field">
+        <span>Issuer</span>
+        <input type="url" name="oidc_issuer" value="<?= View::e($old['oidc_issuer'] ?? '') ?>" placeholder="https://id.example.com">
+        <span class="field-hint">程序会读取 {issuer}/.well-known/openid-configuration</span>
+      </label>
+
+      <div class="field-row">
+        <label class="field">
+          <span>Client ID</span>
+          <input type="text" name="oidc_client_id" value="<?= View::e($old['oidc_client_id'] ?? '') ?>" autocomplete="off">
+        </label>
+        <label class="field">
+          <span>Client Secret</span>
+          <input type="password" name="oidc_client_secret" value="" autocomplete="new-password">
+          <span class="field-hint">公有客户端（仅 PKCE）可留空</span>
+        </label>
+      </div>
+
+      <label class="field">
+        <span>Scopes</span>
+        <input type="text" name="oidc_scopes" value="<?= View::e($old['oidc_scopes'] ?? 'openid profile email') ?>">
+      </label>
+
+      <label class="field">
+        <span>允许登录的 sub <b class="req">*</b></span>
+        <textarea name="oidc_allowed_subs" rows="3" placeholder="每行一个 sub，例如：&#10;248289761001&#10;auth0|5f8e..."><?= View::e($old['oidc_allowed_subs'] ?? '') ?></textarea>
+        <span class="field-hint">只有 sub 在名单内的账号才能通过 OIDC 登录</span>
+      </label>
+
+      <label class="field">
+        <span>回调地址 (Redirect URI)</span>
+        <input type="url" name="oidc_redirect_uri" value="<?= View::e($old['oidc_redirect_uri'] ?? ($oidcRedirectUri ?? '')) ?>">
+        <span class="field-hint">请在身份提供方登记此地址；安装后固定使用该值</span>
+      </label>
+    </div>
+
     <label class="field">
       <span>面板时区</span>
       <select name="timezone">

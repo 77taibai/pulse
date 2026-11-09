@@ -17,6 +17,8 @@ return [
     'GET /login'                   => [AuthController::class, 'showLogin'],
     'POST /login'                  => [AuthController::class, 'login'],
     'POST /logout'                 => [AuthController::class, 'logout'],
+    'GET /auth/oidc/start'         => [AuthController::class, 'oidcStart'],
+    'GET /auth/oidc/callback'      => [AuthController::class, 'oidcCallback'],
 
     'GET /servers/create'          => [ServerController::class, 'create'],
     'POST /servers'                => [ServerController::class, 'store'],

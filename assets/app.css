@@ -305,7 +305,8 @@ body.centered .container {
 .field > .field-hint { font-weight: 400; font-size: 11.5px; line-height: 1.6; color: var(--text-mute); }
 
 .field input,
-.field select {
+.field select,
+.field textarea {
   height: 40px;
   padding: 0 13px;
   border-radius: var(--radius-sm);
@@ -315,6 +316,14 @@ body.centered .container {
   font-size: 13.5px;
   font-family: inherit;
   transition: border-color .16s, box-shadow .16s;
+}
+
+.field textarea {
+  height: auto;
+  min-height: 88px;
+  padding: 10px 13px;
+  line-height: 1.55;
+  resize: vertical;
 }
 
 .field select {
@@ -330,13 +339,25 @@ body.centered .container {
 
 .field input::placeholder { color: #55647c; }
 .field input:hover,
-.field select:hover { border-color: #364866; }
+.field select:hover,
+.field textarea:hover { border-color: #364866; }
 .field input:focus,
-.field select:focus {
+.field select:focus,
+.field textarea:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(79,140,255,.16);
 }
+
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.checkbox-field input { width: 15px; height: 15px; accent-color: var(--accent); }
 
 .field-row { display: flex; gap: 16px; flex-wrap: wrap; }
 .field-row > .field { flex: 1 1 0; min-width: 180px; }
@@ -354,6 +375,29 @@ body.centered .container {
 .auth-head { text-align: center; margin-bottom: 24px; }
 .auth-head h1 { font-size: 20px; }
 .auth-head p { margin-top: 6px; font-size: 13px; }
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0 16px;
+  color: var(--text-mute);
+  font-size: 12px;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border-soft);
+}
+
+.btn-oidc {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--text);
+}
+.btn-oidc:hover { background: #1a2436; border-color: #364866; }
 
 /* ---------- 提示 ---------- */
 

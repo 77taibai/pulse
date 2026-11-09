@@ -52,4 +52,29 @@ return [
         'username' => 'admin',
         'password_hash' => '',
     ],
+
+    // OIDC 单点登录（可选），由安装向导写入 config/config.local.php
+    'oidc' => [
+        // 是否在登录页显示 OIDC 登录入口
+        'enabled' => false,
+
+        // 身份提供方 Issuer，例如 https://id.example.com
+        // 程序会读取 {issuer}/.well-known/openid-configuration
+        'issuer' => '',
+
+        'client_id' => '',
+        'client_secret' => '',
+
+        // 请求的 scope，必须包含 openid
+        'scopes' => 'openid profile email',
+
+        // 允许登录的 sub 名单；为空时视为未启用
+        'allowed_subs' => [],
+
+        // 登录按钮文案
+        'button_label' => '使用 OIDC 登录',
+
+        // 在身份提供方登记的回调地址；留空时按当前部署自动生成
+        'redirect_uri' => '',
+    ],
 ];

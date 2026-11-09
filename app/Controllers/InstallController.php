@@ -37,6 +37,8 @@ final class InstallController extends Controller
             'formAction'  => (string) ($_SERVER['REQUEST_URI'] ?? '/'),
             // 浏览器用它实测伪静态：rewrite 生效时这个地址可直接命中
             'probeUrl'    => Url::origin() . Url::to('__probe'),
+            // 展示给用户登记到身份提供方的 OIDC 回调地址
+            'oidcRedirectUri' => Url::absolute('auth/oidc/callback'),
         ]);
     }
 
@@ -114,6 +116,23 @@ final class InstallController extends Controller
         $retentionDays = max(0, (int) $request->post('retention_days', 30));
         $maxDbMb = max(0, (int) $request->post('max_db_mb', 0));
 
+        $oidcEnabled = (string) $request->post('oidc_enabled', '') === '1';
+        $oidcIssuer = trim((string) $request->post('oidc_issuer', ''));
+        $oidcClientId = trim((string) $request->post('oidc_client_id', ''));
+        $oidcClientSecret = (string) $request->post('oidc_client_secret', '');
+        $oidcScopes = trim((string) $request->post('oidc_scopes', 'openid profile email'));
+        $oidcRedirect = trim((string) $request->post('oidc_redirect_uri', ''));
+        $oidcAllowed = [];
+        foreach (preg_split('/[\r\n,]+/', (string) $request->post('oidc_allowed_subs', '')) ?: [] as $sub) {
+            $sub = trim($sub);
+            if ($sub !== '' && !in_array($sub, $oidcAllowed, true)) {
+                $oidcAllowed[] = $sub;
+            }
+        }
+        if ($oidcScopes === '') {
+            $oidcScopes = 'openid profile email';
+        }
+
         $errors = [];
         if ($dbHost === '') $errors[] = '数据库主机不能为空';
         if ($dbName === '') $errors[] = '数据库名不能为空';
@@ -123,6 +142,27 @@ final class InstallController extends Controller
         if ($adminPass !== $adminPass2) $errors[] = '两次输入的管理员密码不一致';
         if ($timezone !== '' && !in_array($timezone, timezone_identifiers_list(), true)) {
             $errors[] = '时区无效';
+        }
+
+        if ($oidcEnabled) {
+            $issuerScheme = strtolower((string) parse_url($oidcIssuer, PHP_URL_SCHEME));
+            if ($oidcIssuer === '' || !filter_var($oidcIssuer, FILTER_VALIDATE_URL)
+                || !in_array($issuerScheme, ['http', 'https'], true)) {
+                $errors[] = 'OIDC Issuer 必须是有效的 http(s) URL';
+            }
+            if ($oidcClientId === '') {
+                $errors[] = 'OIDC Client ID 不能为空';
+            }
+            if ($oidcAllowed === []) {
+                $errors[] = '启用 OIDC 时至少需要填写一个允许登录的 sub';
+            }
+            if ($oidcRedirect !== '') {
+                $redirectScheme = strtolower((string) parse_url($oidcRedirect, PHP_URL_SCHEME));
+                if (!filter_var($oidcRedirect, FILTER_VALIDATE_URL)
+                    || !in_array($redirectScheme, ['http', 'https'], true)) {
+                    $errors[] = 'OIDC 回调地址必须是有效的 http(s) URL';
+                }
+            }
         }
 
         if ($errors !== []) {
@@ -168,11 +208,18 @@ final class InstallController extends Controller
             Response::redirect(Url::to('install'));
         }
 
+        $urlStyle = ($request->post('rewrite_ok') === '1') ? 'rewrite' : 'pathinfo';
+
+        // 按最终 URL 风格生成回调地址，避免安装前后地址不一致
+        $defaultRedirect = Url::scheme() . '://' . (string) ($_SERVER['HTTP_HOST'] ?? 'localhost')
+            . Url::basePath()
+            . ($urlStyle === 'pathinfo' ? '/index.php/auth/oidc/callback' : '/auth/oidc/callback');
+
         $config = [
             'app' => [
                 'base_path' => Url::basePath(),
                 // 浏览器实测结果：能直接命中 /api/v1/health 说明伪静态可用
-                'url_style' => ($request->post('rewrite_ok') === '1') ? 'rewrite' : 'pathinfo',
+                'url_style' => $urlStyle,
                 'timezone'  => $timezone !== '' ? $timezone : 'Asia/Shanghai',
                 'retention_days' => $retentionDays,
                 'max_db_mb' => $maxDbMb,
@@ -188,6 +235,16 @@ final class InstallController extends Controller
             'auth' => [
                 'username' => $adminUser,
                 'password_hash' => password_hash($adminPass, PASSWORD_DEFAULT),
+            ],
+            'oidc' => [
+                'enabled' => $oidcEnabled,
+                'issuer' => $oidcIssuer,
+                'client_id' => $oidcClientId,
+                'client_secret' => $oidcClientSecret,
+                'scopes' => $oidcScopes,
+                'allowed_subs' => $oidcAllowed,
+                'button_label' => '使用 OIDC 登录',
+                'redirect_uri' => $oidcRedirect !== '' ? $oidcRedirect : $defaultRedirect,
             ],
         ];
 

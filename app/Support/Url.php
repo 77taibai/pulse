@@ -140,6 +140,13 @@ final class Url
         return $scheme . '://' . $host . self::basePath();
     }
 
+    /** 生成应用内链接的完整绝对地址（不重复拼接 base_path） */
+    public static function absolute(string $path = ''): string
+    {
+        $host = (string) ($_SERVER['HTTP_HOST'] ?? 'localhost');
+        return self::scheme() . '://' . $host . self::to($path);
+    }
+
     public static function scheme(): string
     {
         $https = $_SERVER['HTTPS'] ?? '';
