@@ -1,0 +1,45 @@
+# Pulse
+
+Options -Indexes
+
+# Block sensitive suffixes and internal framework files (applies to all subdirectories).
+<FilesMatch "(\.(local\.php|sql|md|log|ini|lock|dist|bak|swp|secret|txt)$|^(config\.php|routes\.php|bootstrap\.php|autoload\.php|\.htaccess|\.gitignore)$)">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Internal directories are never served directly.
+    RewriteRule ^(app|config|database|documentation)(/|$) - [F,L]
+
+    # Serve existing files and directories as-is (assets live here).
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # Everything else goes through the front controller.
+    RewriteRule ^ index.php [L]
+</IfModule>
+
+AddDefaultCharset UTF-8
+
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 7 days"
+    ExpiresByType application/javascript "access plus 7 days"
+    ExpiresByType image/svg+xml "access plus 30 days"
+</IfModule>
+
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set Referrer-Policy "same-origin"
+    Header unset X-Powered-By
+</IfModule>
