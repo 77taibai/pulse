@@ -103,6 +103,20 @@ foreach ($checks as $check) {
       </select>
     </label>
 
+    <h2 class="card-title" style="margin-top:8px">数据保留</h2>
+    <div class="field-row">
+      <label class="field">
+        <span>保留天数</span>
+        <input type="number" name="retention_days" min="0" step="1" value="<?= View::e((string) ($old['retention_days'] ?? 30)) ?>">
+        <span class="muted small">0 表示不按时间清理</span>
+      </label>
+      <label class="field">
+        <span>数据库上限 (MB)</span>
+        <input type="number" name="max_db_mb" min="0" step="1" value="<?= View::e((string) ($old['max_db_mb'] ?? 500)) ?>">
+        <span class="muted small">超出后自动删除最旧记录，0 表示不限制</span>
+      </label>
+    </div>
+
     <div class="form-actions">
       <button class="btn btn-primary btn-block" type="submit" <?= $allOk ? '' : 'disabled' ?>>
         <?= $allOk ? '开始安装' : '请先解决环境问题' ?>

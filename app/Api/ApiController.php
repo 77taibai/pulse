@@ -48,7 +48,7 @@ final class ApiController
             throw new ApiException('上报内容为空或不包含任何可识别的监控字段', 422, 'empty_report');
         }
 
-        $reportId = Report::store((int) $server['id'], $data, $payload);
+        $reportId = Report::store((int) $server['id'], $data);
         // 1/5/15 分钟平均负载由面板依据历史 CPU 使用率算出，入库后立刻回填
         Report::refreshLoad($reportId);
         Server::touch((int) $server['id'], gmdate('Y-m-d H:i:s'), $reportId);

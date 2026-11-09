@@ -42,7 +42,6 @@ use App\Support\View;
           <option value="<?= (int) $seconds ?>" <?= (int) $interval === (int) $seconds ? 'selected' : '' ?>><?= View::e($label) ?></option>
         <?php endforeach; ?>
       </select>
-      <span class="muted small field-hint">建议上报程序按此频率上报，仅作推荐，不做强制要求。</span>
     </div>
 
     <div class="form-actions">

@@ -32,9 +32,23 @@ final class Schema
         'servers' => ['api_key_enc', 'api_key_hint'],
     ];
 
+    /**
+     * 需要直接删除的字段（非敏感数据，无需先清空）。
+     *
+     * raw_json 会保存完整原始报文，单行可达数 KB，长期占用大量空间；
+     * 新版本只保存解析后的指标，历史列在升级时直接删除以释放空间。
+     */
+    private const DROP_COLUMNS = [
+        'reports' => ['raw_json'],
+    ];
+
     public static function ensure(): void
     {
-        $tables = array_unique(array_merge(array_keys(self::COLUMNS), array_keys(self::OBSOLETE_COLUMNS)));
+        $tables = array_unique(array_merge(
+            array_keys(self::COLUMNS),
+            array_keys(self::OBSOLETE_COLUMNS),
+            array_keys(self::DROP_COLUMNS)
+        ));
 
         try {
             foreach ($tables as $table) {
@@ -53,6 +67,12 @@ final class Schema
                 foreach (self::OBSOLETE_COLUMNS[$table] ?? [] as $column) {
                     if (isset($existing[$column])) {
                         self::purgeColumn($table, $column, $existing[$column]);
+                    }
+                }
+
+                foreach (self::DROP_COLUMNS[$table] ?? [] as $column) {
+                    if (isset($existing[$column])) {
+                        self::dropColumn($table, $column);
                     }
                 }
             }
@@ -85,6 +105,18 @@ final class Schema
             Db::exec("ALTER TABLE `{$table}` DROP COLUMN `{$column}`");
         } catch (\Throwable) {
             // 没有 ALTER 权限时保留空列，数据已清空，不影响使用
+        }
+    }
+
+    /**
+     * 删除不再需要的列。删除失败时记录日志，下次请求会重试。
+     */
+    private static function dropColumn(string $table, string $column): void
+    {
+        try {
+            Db::exec("ALTER TABLE `{$table}` DROP COLUMN `{$column}`");
+        } catch (\Throwable $e) {
+            error_log('[pulse schema] 删除 ' . $table . '.' . $column . ' 失败：' . $e->getMessage());
         }
     }
 

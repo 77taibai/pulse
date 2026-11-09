@@ -60,7 +60,6 @@ return [
         `load5`           DECIMAL(8,2) DEFAULT NULL,
         `load15`          DECIMAL(8,2) DEFAULT NULL,
         `ip`              VARCHAR(45)  DEFAULT NULL,
-        `raw_json`        MEDIUMTEXT,
         PRIMARY KEY (`id`),
         KEY `idx_server_id` (`server_id`, `id`),
         KEY `idx_server_time` (`server_id`, `received_at`),

@@ -111,6 +111,8 @@ final class InstallController extends Controller
         $adminPass = (string) $request->post('admin_pass', '');
         $adminPass2 = (string) $request->post('admin_pass2', '');
         $timezone = trim((string) $request->post('timezone', 'Asia/Shanghai'));
+        $retentionDays = max(0, (int) $request->post('retention_days', 30));
+        $maxDbMb = max(0, (int) $request->post('max_db_mb', 0));
 
         $errors = [];
         if ($dbHost === '') $errors[] = '数据库主机不能为空';
@@ -172,6 +174,8 @@ final class InstallController extends Controller
                 // 浏览器实测结果：能直接命中 /api/v1/health 说明伪静态可用
                 'url_style' => ($request->post('rewrite_ok') === '1') ? 'rewrite' : 'pathinfo',
                 'timezone'  => $timezone !== '' ? $timezone : 'Asia/Shanghai',
+                'retention_days' => $retentionDays,
+                'max_db_mb' => $maxDbMb,
             ],
             'db' => [
                 'host' => $dbHost,

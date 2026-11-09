@@ -16,10 +16,10 @@ final class Report
         'disk_total', 'disk_used', 'disk_free', 'disk_usage',
         'net_up', 'net_down',
         'load1', 'load5', 'load15',
-        'ip', 'raw_json',
+        'ip',
     ];
 
-    public static function store(int $serverId, array $data, array $rawPayload): int
+    public static function store(int $serverId, array $data): int
     {
         $row = ['server_id' => $serverId, 'received_at' => gmdate('Y-m-d H:i:s')];
         foreach (self::FIELDS as $field) {
@@ -28,7 +28,6 @@ final class Report
             }
             $row[$field] = $data[$field] ?? null;
         }
-        $row['raw_json'] = json_encode($rawPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR);
 
         $columns = array_keys($row);
         $sql = 'INSERT INTO reports (`' . implode('`, `', $columns) . '`) VALUES ('
@@ -145,9 +144,127 @@ final class Report
         return Db::one('SELECT * FROM reports WHERE id = ?', [$id]);
     }
 
-    public static function deleteOlderThan(int $days): int
+    /**
+     * 删除超过保留期的上报记录。
+     *
+     * 分批删除，避免一次性删除大量行造成长时间锁表；
+     * 单次调用最多删除 $maxBatches * $batchSize 行，剩余数据由后续请求继续清理。
+     */
+    public static function deleteOlderThan(int $days, int $batchSize = 5000, int $maxBatches = 20): int
     {
         $days = max(1, $days);
-        return Db::exec('DELETE FROM reports WHERE received_at < ?', [gmdate('Y-m-d H:i:s', time() - $days * 86400)]);
+        $cutoff = gmdate('Y-m-d H:i:s', time() - $days * 86400);
+        $batchSize = max(1, $batchSize);
+        $maxBatches = max(1, $maxBatches);
+
+        $deleted = 0;
+        for ($i = 0; $i < $maxBatches; $i++) {
+            $affected = Db::exec(
+                'DELETE FROM reports WHERE received_at < ? ORDER BY received_at LIMIT ' . $batchSize,
+                [$cutoff]
+            );
+            $deleted += $affected;
+            if ($affected < $batchSize) {
+                break;
+            }
+        }
+
+        return $deleted;
+    }
+
+    /**
+     * 数据库大小超过 $maxBytes 时，删除最旧的上报记录以释放空间。
+     *
+     * 先按「单个 reports 行的平均大小」估算需要删除的行数，目标压到上限的
+     * $targetRatio（默认 85%）以下，给后续写入留出缓冲；删除后尝试
+     * OPTIMIZE TABLE 真正回收磁盘空间（无权限时忽略，空闲页仍会被复用）。
+     */
+    public static function deleteToFit(
+        int $maxBytes,
+        float $targetRatio = 0.85,
+        int $batchSize = 5000,
+        int $maxBatches = 100
+    ): int {
+        if ($maxBytes <= 0) {
+            return 0;
+        }
+
+        $dbSize = self::databaseSize();
+        if ($dbSize === null || $dbSize <= $maxBytes) {
+            return 0;
+        }
+
+        $targetRatio = min(0.99, max(0.1, $targetRatio));
+        $targetBytes = (int) max(1, floor($maxBytes * $targetRatio));
+        $overflow = $dbSize - $targetBytes;
+
+        $info = Db::one(
+            'SELECT COALESCE(DATA_LENGTH, 0) + COALESCE(INDEX_LENGTH, 0) AS size,
+                    COALESCE(TABLE_ROWS, 0) AS rows
+             FROM information_schema.TABLES
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?',
+            ['reports']
+        );
+
+        $reportSize = $info !== null ? (int) $info['size'] : 0;
+        $reportRows = $info !== null ? (int) $info['rows'] : 0;
+        $avgRowBytes = ($reportRows > 0 && $reportSize > 0) ? $reportSize / $reportRows : 512.0;
+
+        $batchSize = max(1, $batchSize);
+        $maxBatches = max(1, $maxBatches);
+
+        // 至少删一批，避免 TABLE_ROWS 估算偏差导致清理不足
+        $remaining = max($batchSize, (int) ceil($overflow / $avgRowBytes));
+
+        $deleted = 0;
+        for ($i = 0; $i < $maxBatches && $remaining > 0; $i++) {
+            $limit = min($batchSize, $remaining);
+            $affected = Db::exec('DELETE FROM reports ORDER BY received_at LIMIT ' . $limit);
+            $deleted += $affected;
+            $remaining -= $affected;
+            if ($affected < $limit) {
+                break; // 没有更多可删除的数据
+            }
+        }
+
+        if ($deleted > 0) {
+            self::optimizeReports();
+        }
+
+        return $deleted;
+    }
+
+    /**
+     * 当前数据库实际占用的字节数（数据 + 索引 - 空闲页）；读取失败时返回 null。
+     *
+     * 减去 DATA_FREE 是为了让已删除但尚未回收的页不计入占用，
+     * 避免在 OPTIMIZE 失败时反复删除旧数据。
+     */
+    public static function databaseSize(): ?int
+    {
+        try {
+            $value = Db::value(
+                'SELECT SUM(
+                            COALESCE(DATA_LENGTH, 0) + COALESCE(INDEX_LENGTH, 0) - COALESCE(DATA_FREE, 0)
+                        )
+                 FROM information_schema.TABLES
+                 WHERE TABLE_SCHEMA = DATABASE()'
+            );
+        } catch (\Throwable $e) {
+            error_log('[pulse prune] 无法读取数据库大小：' . $e->getMessage());
+            return null;
+        }
+
+        return $value === null ? null : max(0, (int) $value);
+    }
+
+    /** 尝试重建 reports 表以回收已删除记录占用的磁盘空间。 */
+    private static function optimizeReports(): void
+    {
+        try {
+            Db::pdo()->query('OPTIMIZE TABLE `reports`')->fetchAll();
+        } catch (\Throwable $e) {
+            error_log('[pulse prune] OPTIMIZE TABLE 失败，空间将在后续写入中复用：' . $e->getMessage());
+        }
     }
 }

@@ -33,8 +33,3 @@ use App\Support\View;
     <dt>来源 IP</dt><dd><?= View::e($report['ip'] ?: '—') ?></dd>
   </dl>
 </div>
-
-<div class="card">
-  <h2 class="card-title">原始上报数据</h2>
-  <pre class="raw"><?= View::e($raw ?: '（未保存原始数据）') ?></pre>
-</div>

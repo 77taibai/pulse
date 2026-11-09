@@ -245,17 +245,10 @@ final class ServerController extends Controller
             $this->notFound('记录不存在');
         }
 
-        $raw = null;
-        if (!empty($report['raw_json'])) {
-            $decoded = json_decode((string) $report['raw_json'], true);
-            $raw = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        }
-
         View::page('servers/report', [
             'title'  => '上报 #' . $reportId . ' · ' . $this->appName(),
             'server' => $server,
             'report' => $report,
-            'raw'    => $raw,
             'csrf'   => Response::csrfToken(),
             'flashes' => Response::takeFlashes(),
         ]);
