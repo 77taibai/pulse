@@ -4,7 +4,6 @@ use App\Support\View;
 
 /** @var array $servers */
 /** @var array $stats */
-/** @var int $offlineAfter */
 ?>
 <div class="page-head">
   <div>

@@ -5,7 +5,6 @@ namespace App\Controllers;
 
 use App\Models\Report;
 use App\Models\Server;
-use App\Support\Config;
 use App\Support\Format;
 use App\Support\KeyReveal;
 use App\Support\Request;
@@ -19,7 +18,6 @@ final class ServerController extends Controller
         $this->requireAuth();
 
         $servers = Server::overview();
-        $offlineAfter = (int) Config::get('app.offline_after', 180);
 
         $stats = [
             'total'   => count($servers),
@@ -31,7 +29,6 @@ final class ServerController extends Controller
             'title'        => '服务器总览 · ' . $this->appName(),
             'servers'      => $servers,
             'stats'        => $stats,
-            'offlineAfter' => $offlineAfter,
             'csrf'         => Response::csrfToken(),
             'flashes'      => Response::takeFlashes(),
         ]);
@@ -88,12 +85,7 @@ final class ServerController extends Controller
         $latest = Report::latest($id);
         $series = Report::series($id, 240);
         $total = Report::count($id);
-        $offlineAfter = (int) Config::get('app.offline_after', 180);
-        $online = false;
-        if (!empty($server['last_seen_at'])) {
-            $seen = strtotime($server['last_seen_at'] . ' UTC');
-            $online = $seen !== false && (time() - $seen) <= $offlineAfter;
-        }
+        $online = Server::isOnline($server['last_seen_at'] ?? null, Server::offlineThreshold($server));
 
         $createdKey = KeyReveal::pull($id);
 

@@ -78,6 +78,37 @@ final class Server
     }
 
     /**
+     * 判定离线的阈值（秒）。
+     *
+     * 上报间隔是可配置的（10 秒 ~ 1 小时），如果只用一个固定阈值，
+     * 间隔较大的服务器会在还没到下次上报时间时就被误判为离线。
+     * 因此以该服务器自身的上报间隔为准：允许错过一次上报（2 倍间隔），
+     * 并保证不低于全局 offline_after 兜底值，兼容原有小间隔场景。
+     */
+    public static function offlineThreshold(array $server): int
+    {
+        $floor = (int) Config::get('app.offline_after', 180);
+        $interval = self::interval($server);
+
+        return max($floor, $interval * 2);
+    }
+
+    /** 依据最近一次上报时间与阈值判断是否在线 */
+    public static function isOnline(?string $lastSeenUtc, int $threshold): bool
+    {
+        if ($lastSeenUtc === null || $lastSeenUtc === '') {
+            return false;
+        }
+
+        $seen = strtotime($lastSeenUtc . ' UTC');
+        if ($seen === false) {
+            return false;
+        }
+
+        return (time() - $seen) <= $threshold;
+    }
+
+    /**
      * 创建服务器，返回 [id, 明文 key]。
      *
      * 明文不落库，调用方必须立刻把它交给用户（一次性展示），之后无法再取回。
@@ -171,15 +202,8 @@ final class Server
              ORDER BY s.id ASC'
         );
 
-        $offlineAfter = (int) Config::get('app.offline_after', 180);
-        $now = time();
-
         foreach ($rows as &$row) {
-            $row['online'] = false;
-            if (!empty($row['last_seen_at'])) {
-                $seen = strtotime($row['last_seen_at'] . ' UTC');
-                $row['online'] = $seen !== false && ($now - $seen) <= $offlineAfter;
-            }
+            $row['online'] = self::isOnline($row['last_seen_at'] ?? null, self::offlineThreshold($row));
         }
         unset($row);
 
